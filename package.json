@@ -1,0 +1,26 @@
+{
+  "name": "@mdz/wolpi-types",
+  "version": "0.1.0",
+  "description": "Type declarations for the Wolpi extension API",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "README.md"
+  ],
+  "keywords": [
+    "wolpi",
+    "iiif",
+    "types",
+    "graaljs"
+  ]
+}
