@@ -6,7 +6,9 @@ This package provides:
 - Wolpi hook signatures and data model types
 - declarations for the global `wolpi` object and GraalJS `Java` interop
 - typings for `wolpi:fs` and `wolpi:fetch`
-- opaque host object types used by the core API (`VImage`, `JavaByteBuffer`, `JavaHttpClient`, etc.)
+- opaque host object types used by the core API (`VImage`, `ByteBuffer`, `HttpClient`, `Arena`, etc.)
+
+The exported type names match the Java types used in Wolpi itself.
 
 
 ## Install

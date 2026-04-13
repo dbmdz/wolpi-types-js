@@ -19,18 +19,19 @@ export type ApiVersion = 1;
 export type VImage = JavaHostObject;
 
 /**
- * Opaque arena handle passed to vips-ffm APIs for creating new images.
+ * Java {@link https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/foreign/Arena.html|java.lang.foreign.Arena}
+ * host object passed to vips-ffm APIs for creating new images.
  *
  * Treat this as an opaque handle that is only forwarded to vips-ffm. Do not
  * store a reference to it or try to manipulate it directly.
  */
-export type VipsArena = object;
+export interface Arena extends JavaHostObject {}
 
 /** Java {@link https://docs.oracle.com/javase/8/docs/api/java/nio/ByteBuffer.html|java.nio.ByteBuffer} type. */
-export interface JavaByteBuffer extends JavaHostObject {}
+export interface ByteBuffer extends JavaHostObject {}
 
 /** Java {@link https://docs.oracle.com/en/java/javase/11/docs/api/java.net.http/java/net/http/HttpClient.html|java.net.http.HttpClient} type. */
-export interface JavaHttpClient extends JavaHostObject {}
+export interface HttpClient extends JavaHostObject {}
 
 /**
  * IIIF Image API version exposed guest-side as a Java host enum object.
@@ -85,7 +86,7 @@ export interface CacheInfo {
 }
 
 /** Rectangular crop region in non-fractional pixels. */
-export interface CropRegion {
+export interface CropRectangle {
   x: number;
   y: number;
   width: number;
@@ -187,7 +188,7 @@ export interface SourceNotModified {
 }
 
 /** Value returned from the `resolve()` hook. */
-export type ImageSource =
+export type ResolvedImage =
   | FilesystemResolvedImage
   | BinaryResolvedImage
   | HttpResolvedImage
@@ -195,12 +196,25 @@ export type ImageSource =
   | SourceNotModified;
 
 /**
+ * Java wrapper around a resolved image plus identifier and optional metadata.
+ *
+ * This type is used internally by Wolpi after the `resolve()` hook result has
+ * been mapped into Java.
+ */
+export interface ImageSource {
+  identifier: string;
+  resolvedImage: ResolvedImage;
+  imageInfo?: ImageInfo | null;
+  cacheInfo?: CacheInfo | null;
+}
+
+/**
  * Encoded image data returned by the `preFormat()` hook.
  *
  * `data` may be a Java `ByteBuffer` or a JS byte container.
  */
 export interface EncodedImage {
-  data: Uint8Array | ArrayBufferView | JavaByteBuffer;
+  data: Uint8Array | ArrayBufferView | ByteBuffer;
   contentType: string;
   extraHeaders?: Record<string, string[]>;
 }
@@ -239,7 +253,7 @@ export interface TimerMetric {
  * with the same name and labels are deduplicated by the underlying metrics
  * library.
  */
-export interface WolpiMetrics {
+export interface ExtensionMetrics {
   /** Create or retrieve a counter metric. */
   counter(
     name: string,
@@ -270,13 +284,13 @@ export interface WolpiMetrics {
  * Loggers are prefixed with `wolpi.extension.<extension-name>` and support
  * additional structured key-value details.
  */
-export interface WolpiLogger {
+export interface ExtensionLogger {
   /** Create a child logger with the given name appended to the current logger name.
    *
    * Note that the logger itself is already bound to the extension name, so this should only
    * be used to create more specific sub-loggers.
   */
-  getLogger(name: string): WolpiLogger;
+  getLogger(name: string): ExtensionLogger;
 
   /** Log a message at DEBUG level.
    *
@@ -319,7 +333,7 @@ export interface ImageRequestParser {
    *
    * Supports `full`, `square`, `x,y,w,h`, and `pct:x,y,w,h`.
    */
-  parseRegion(spec: string, sourceSize: ImageSize): CropRegion;
+  parseRegion(spec: string, sourceSize: ImageSize): CropRectangle;
 
   /**
    * Parse a size specification for IIIF v2 or v3.
@@ -351,7 +365,7 @@ export interface ImageRequestParser {
 /**
  * Global runtime context available to JavaScript extensions as `wolpi`.
  */
-export interface WolpiContext {
+export interface ExtensionGuestContext {
   /** Extension configuration object, if one was provided. */
   config: Record<string, any> | null;
 
@@ -362,19 +376,19 @@ export interface WolpiContext {
   extensionVersion: string;
 
   /** Logger instance for extension log output. */
-  logger: WolpiLogger;
+  logger: ExtensionLogger;
 
   /** Metrics entry point for custom counters, gauges, and timers. */
-  metrics: WolpiMetrics;
+  metrics: ExtensionMetrics;
 
   /** Opaque arena handle for vips-related host APIs. */
-  vipsArena: VipsArena;
+  vipsArena: Arena;
 
   /** Helper for parsing official IIIF request syntax. */
   imageRequestParser: ImageRequestParser;
 
   /** Shared Java HTTP client instance. */
-  httpClient: JavaHttpClient;
+  httpClient: HttpClient;
 
   /**
    * Configured base URI for this Wolpi instance, if available.
@@ -445,7 +459,7 @@ export type ResolveHook = (
   identifier: string,
   clientETag?: string | null,
   clientLastModified?: string | null,
-) => ImageSource | null | undefined | void;
+) => ResolvedImage | null | undefined | void;
 
 /**
  * Augment the generated `info.json` response.
@@ -514,7 +528,7 @@ export interface GraalJavaInterop {
 
 declare global {
   /** Global Wolpi runtime context available to all JavaScript extensions. */
-  const wolpi: WolpiContext;
+  const wolpi: ExtensionGuestContext;
 
   /** GraalJS Java interop global. */
   const Java: GraalJavaInterop;
