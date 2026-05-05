@@ -54,12 +54,28 @@ For JavaScript projects, also enable `checkJs`:
 TypeScript:
 
 ```ts
-import type { WolpiExtension } from '@mdz/wolpi-types';
+import type { ExtensionInfo, WolpiExtension } from '@mdz/wolpi-types';
+
+const info = (): ExtensionInfo => ({
+  apiVersion: 1,
+  name: 'example-extension',
+  description: 'Minimal typed Wolpi extension',
+});
 
 const extension: WolpiExtension = {
+  info,
+  cleanup: () => {},
 };
 
 export default extension;
+```
+
+## Development
+
+Run the declaration smoke tests with:
+
+```sh
+npm run test:types
 ```
 
 JavaScript:

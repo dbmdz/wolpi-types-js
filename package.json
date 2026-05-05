@@ -5,6 +5,9 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
+  "scripts": {
+    "test:types": "tsc -p tsconfig.json"
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -23,5 +26,8 @@
     "iiif",
     "types",
     "graaljs"
-  ]
+  ],
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
 }
