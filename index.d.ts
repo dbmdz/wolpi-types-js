@@ -10,6 +10,40 @@ export interface JavaHostObject {}
 /** Wolpi extension API versions currently supported by the runtime. */
 export type ApiVersion = 1;
 
+/** Scalar JSON value accepted by Wolpi APIs. */
+export type JsonPrimitive = string | number | boolean | null;
+
+/** JSON array containing JSON values. */
+export interface JsonArray extends Array<JsonValue> {}
+
+/** JSON object mapping string keys to JSON values. */
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+/** Recursive JSON value used for `info.json` augmentation and error details. */
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+
+/** Immutable JSON array containing immutable JSON values. */
+export interface ImmutableJsonArray extends ReadonlyArray<ImmutableJsonValue> {}
+
+/** Immutable JSON input object. */
+export interface ImmutableJsonObject {
+  readonly [key: string]: ImmutableJsonValue;
+}
+
+/** Immutable JSON input value. */
+export type ImmutableJsonValue =
+  | JsonPrimitive
+  | ImmutableJsonObject
+  | ImmutableJsonArray;
+
+/** HTTP headers. */
+export type HttpHeaders = Record<string, string[]>;
+
+/** Supported IIIF quality values. */
+export type IIIFQuality = "color" | "gray" | "bitonal";
+
 /** Opaque host object for libvips images.
 *
 * Refer to the {@link
@@ -43,6 +77,9 @@ export interface IIIFVersion extends JavaHostObject {
   /** Returns the numeric IIIF Image API version, e.g. `2` or `3`. */
   value(): number;
 }
+
+/** IIIF version accepted by parser helpers, either as a host enum or a short string. */
+export type IIIFVersionInput = IIIFVersion | "v2" | "v3";
 
 /** Width and height in pixels. */
 export interface ImageSize {
@@ -158,7 +195,7 @@ export interface HttpResolvedImage extends ResolvedMeta {
  * A custom data source that libvips will read from using callbacks.
  *
  * This can be more efficient for large images from backends such as databases
- * or object storage systems.
+ * or object storage systems. Metadata may be attached as additional properties.
  */
 export interface CustomSourceResolvedImage extends ResolvedMeta {
   /**
@@ -180,7 +217,7 @@ export interface CustomSourceResolvedImage extends ResolvedMeta {
   onRead(length: number): Uint8Array | ArrayBufferView;
 }
 
-/** Error type that signals that the source has not been modified since the client's cached copy. */
+/** Marker result indicating that the source has not changed since the client's cached copy. */
 export interface SourceNotModified {
   notModified: true;
   imageInfo?: ImageInfo;
@@ -216,7 +253,7 @@ export interface ImageSource {
 export interface EncodedImage {
   data: Uint8Array | ArrayBufferView | ByteBuffer;
   contentType: string;
-  extraHeaders?: Record<string, string[]>;
+  extraHeaders?: HttpHeaders;
 }
 
 /** Counter metric that should only increase. */
@@ -341,7 +378,7 @@ export interface ImageRequestParser {
    * Supports official IIIF size syntax such as `full`, `max`, `^max`,
    * `w,`, `,h`, `pct:n`, `w,h`, and `!w,h` variants where applicable.
    */
-  parseSize(version: IIIFVersion | "v2" | "v3", spec: string, sourceSize: ImageSize): ImageSize;
+  parseSize(version: IIIFVersionInput, spec: string, sourceSize: ImageSize): ImageSize;
 
   /**
    * Parse a rotation specification.
@@ -356,7 +393,7 @@ export interface ImageRequestParser {
    *
    * Supported values are `color`, `gray`, and `bitonal`.
    */
-  parseQuality(spec: string): "color" | "gray" | "bitonal";
+  parseQuality(spec: string): IIIFQuality;
 
   /** Convert a request into its canonical form, or return `null` if unavailable. */
   toCanonicalForm(request: ImageApiRequest, sourceSize: ImageSize): ImageApiRequest | null;
@@ -367,7 +404,7 @@ export interface ImageRequestParser {
  */
 export interface ExtensionGuestContext {
   /** Extension configuration object, if one was provided. */
-  config: Record<string, any> | null;
+  config: Record<string, unknown> | null;
 
   /** Wolpi version currently running. */
   wolpiVersion: string;
@@ -410,18 +447,6 @@ export interface HttpStatusError {
   details?: Record<string, unknown>;
 }
 
-/** Hook returning static extension metadata. */
-export type InfoHook = () => ExtensionInfo;
-
-/** Hook called when the extension is initialized. */
-export type SetupHook = () => void;
-
-/** Hook called when the extension is destroyed. */
-export type DestroyHook = () => void;
-
-/** Hook called after a request to clean up request-scoped extension state. */
-export type CleanupHook = () => void;
-
 /** Names for hooks related to image processing, used to mark them as skippable. */
 export type ImageHookName =
   | 'preProcessImage'
@@ -431,93 +456,280 @@ export type ImageHookName =
   | 'preQuality'
   | 'preFormat';
 
-/** Mark a set of hooks as skippable for this request, allowing Wolpi to skip calling them and
- *  choose a faster execution path, if possible.
- *
- * By default, all hooks that an extension implements are non-skippable, meaning
- * that Wolpi must call them for every request and assume that they may mutate
- * the image or otherwise affect processing. If a hook is marked as skippable,
- * Wolpi can skip calling it and take a faster path if it determines that the
- * hook's functionality is not needed for the current request.
- */
-export type SkippableHooksHook = (request: ImageApiRequest) => ImageHookName[] | Set<ImageHookName>;
-
 /**
- * Authorization hook.
+ * A Wolpi extension.
  *
- * Return `true` to allow access and `false` to deny it.
+ * `info` and `cleanup` are required. The remaining hooks are optional, so
+ * extensions can implement only the hooks they need.
  */
-export type AuthorizeHook = (identifier: string, headers: Record<string, string[]>, clientIp: string) => boolean;
-
-/**
- * Resolve an image identifier to an image source.
- *
- * The hook receives caching headers from the client, if present, and may also
- * return `imageInfo` / `cacheInfo` metadata to avoid extra probing by Wolpi.
- */
-export type ResolveHook = (
-  identifier: string,
-  clientETag?: string | null,
-  clientLastModified?: string | null,
-) => ResolvedImage | null | undefined | void;
-
-/**
- * Augment the generated `info.json` response.
- *
- * Return a new object rather than mutating the input object in place.
- */
-export type AugmentInfoJsonHook = (
-  identifier: string,
-  currentInfoJson: Record<string, unknown>,
-  iiifVersion: number,
-) => Record<string, unknown> | null | undefined | void;
-
-/**
- * Hook signature shared by image-processing hooks such as `preProcessImage`,
- * `preScale`, `preCrop`, `preRotate`, and `preQuality`.
- */
-export type ImageProcessingHook = (
-  image: VImage,
-  identifier: string,
-  imageInfo: ImageInfo,
-  request: ImageApiRequest,
-) => VImage | null | undefined | void;
-
-/**
- * Hook called before the image is encoded to the requested output format.
- *
- * Return an `EncodedImage` to take over encoding or `null` / `undefined` to
- * let Wolpi continue with its default encoding.
- */
-export type PreFormatHook = (
-  image: VImage,
-  identifier: string,
-  imageInfo: ImageInfo,
-  request: ImageApiRequest,
-) => EncodedImage | null | undefined | void;
-
-/** A Wolpi extension. */
 export interface WolpiExtension {
-  info: InfoHook;
-  cleanup: CleanupHook;
-  setup?: SetupHook;
-  destroy?: DestroyHook;
-  skippableHooks?: SkippableHooksHook;
-  authorize?: AuthorizeHook;
-  resolve?: ResolveHook;
-  augmentInfoJson?: AugmentInfoJsonHook;
+  /**
+   * Return static metadata describing the extension.
+   *
+   * Wolpi calls this during extension discovery and startup in a separate
+   * runtime context. Do not use it for initialization or request-scoped state.
+   *
+   * @returns Static extension metadata.
+   */
+  info: () => ExtensionInfo;
+
+  /**
+   * Reset any request-scoped state accumulated during request handling.
+   *
+   * This hook is required even for extensions that keep no per-request state
+   * to force explicit consideration of cleanup needs.
+   */
+  cleanup: () => void;
+
+  /**
+   * Run expensive initialization, once, outside the request-response cycle.
+   *
+   * Use this for long-lived resources that should not be created during a
+   * request, like database connections.
+   */
+  setup?: () => void;
+
+  /**
+   * Clean up resources previously allocated in `setup()`.
+   *
+   * This hook runs when the extension instance is shut down, not after each
+   * request.
+   */
+  destroy?: () => void;
+
+  /**
+   * Return image-processing hooks that can be skipped for `request`.
+   *
+   * Returned hooks are not run for that request. This helps ensure that we hit
+   * Wolpi's fast paths for image processing when an extension clearly states
+   * that it doesn't need to touch the image processing pipeline for a given
+   * request.
+   *
+   * @param request The current IIIF request as an {@link ImageApiRequest} object.
+   * @returns Hook names that Wolpi may skip for this request, or `null` /
+   * `undefined` if no hooks can be skipped.
+   */
+  skippableHooks?: (request: ImageApiRequest) => Iterable<ImageHookName> | null | undefined | void;
+
+  /**
+   * Authorize access to `identifier` for the given request context.
+   *
+   * `headers` contains all request header values and `clientIp` is the original
+   * client IP after proxy resolution. If multiple extensions implement this
+   * hook, all of them must allow the request.
+   *
+   * @param identifier The image identifier being requested.
+   * @param headers Request headers as {@link HttpHeaders}.
+   * @param clientIp Original client IP after proxy resolution.
+   * @returns `true` to allow access, `false` to deny it.
+   */
+  authorize?: (identifier: string, headers: HttpHeaders, clientIp: string) => boolean;
+
+  /**
+   * Resolve `identifier` to a supported {@link ResolvedImage} or return `null`.
+   *
+   * The cache validator arguments mirror the client's conditional request
+   * headers when present. Resolver return objects may include nested `imageInfo`
+   * and `cacheInfo` objects to avoid extra probing for `info.json`; {@link
+   * SourceNotModified} forces a 304 response.
+   *
+   * If this hook returns a {@link HttpResolvedImage} or a
+   * {@link FilesystemResolvedImage}, Wolpi will handle the check if a 304 Not
+   * Modified response can be sent based on the provided metadata and the
+   * client's validators, so extensions only need to return
+   * {@link SourceNotModified} if they have custom logic for determining
+   * staleness.
+   *
+   * @param identifier The image identifier to resolve.
+   * @param clientETag Client `ETag` validator, if present.
+   * @param clientLastModified Client `Last-Modified` validator, if present.
+   * @returns A supported {@link ResolvedImage} shape or `null` / `undefined`.
+   */
+  resolve?: (
+    identifier: string,
+    clientETag?: string | null,
+    clientLastModified?: string | null,
+  ) => ResolvedImage | null | undefined | void;
+
+  /**
+   * Return a new `info.json` object or `null` to keep the current one.
+   *
+   * `currentInfoJson` is read-only; return a modified copy if you want to change
+   * it. If multiple extensions implement this hook, each receives the previous
+   * extension's result in configuration order.
+   *
+   * @param identifier The image identifier.
+   * @param currentInfoJson The current `info.json` object as an immutable mapping.
+   * @param iiifVersion Numeric IIIF Image API version.
+   * @returns A new {@link JsonObject} or `null` / `undefined` to keep the
+   * current value.
+   */
+  augmentInfoJson?: (
+    identifier: string,
+    currentInfoJson: ImmutableJsonObject,
+    iiifVersion: number,
+  ) => JsonObject | null | undefined | void;
+
   /**
    * Run before the standard processing pipeline.
    *
-   * The returned image must keep the same dimensions as the input image.
-   * Wolpi ignores results with different width or height.
+   * Perform mutations on the `image` before any of Wolpi's standard processing
+   * steps run. This is the place to apply global image transformations that
+   * don't map cleanly to the crop/scale/rotate/quality steps, like
+   * watermarking.
+   *
+   * The returned image must keep the same dimensions as the input image or
+   * Wolpi ignores it. If multiple extensions implement this hook, each receives
+   * the previous extension's result, if it was not `null` or `undefined`.
+   *
+   * `imageInfo` describes the original input image. `image` is either the
+   * original image (if the extension is the first to be called), or the result
+   * of the previous extension's `preProcessImage` result, if it was not `null`
+   * or `undefined`.
+   *
+   * @param image Current pipeline image as a {@link VImage} host object.
+   * @param identifier The image identifier.
+   * @param imageInfo Source image metadata as {@link ImageInfo}.
+   * @param request Current IIIF request as {@link ImageApiRequest}.
+   * @returns A replacement {@link VImage} or `null` / `undefined` to keep the
+   * existing pipeline image.
    */
-  preProcessImage?: ImageProcessingHook;
-  preCrop?: ImageProcessingHook;
-  preScale?: ImageProcessingHook;
-  preRotate?: ImageProcessingHook;
-  preQuality?: ImageProcessingHook;
-  preFormat?: PreFormatHook;
+  preProcessImage?: (
+    image: VImage,
+    identifier: string,
+    imageInfo: ImageInfo,
+    request: ImageApiRequest,
+  ) => VImage | null | undefined | void;
+
+  /**
+   * Override or augment the image scaling step.
+   *
+   * `imageInfo` describes the original input image. If multiple extensions
+   * implement this hook, the first non-`null`/non-`undefined` result wins;
+   * returning `null` or `undefined` falls back to the next extension or Wolpi's
+   * default scaling.
+   *
+   * If you need to run Wolpi's standard scaling logic and then apply additional
+   * transformations, use the {@link ImageRequestParser} (available in
+   * `wolpi.imageRequestParser`) to parse `request.sizeSpec` into a target
+   * {@link ImageSize}.
+   *
+   * @param image Current pipeline image as a {@link VImage} host object.
+   * @param identifier The image identifier.
+   * @param imageInfo Source image metadata as {@link ImageInfo}.
+   * @param request Current IIIF request as {@link ImageApiRequest}.
+   * @returns A scaled {@link VImage} or `null` / `undefined` to keep Wolpi's
+   * default scaling behavior.
+   */
+  preScale?: (
+    image: VImage,
+    identifier: string,
+    imageInfo: ImageInfo,
+    request: ImageApiRequest,
+  ) => VImage | null | undefined | void;
+
+  /**
+   * Override or augment the image crop step.
+   *
+   * `imageInfo` describes the original input image. If multiple extensions
+   * implement this hook, the first non-`null`/non-`undefined` result wins;
+   * returning `null` or `undefined` falls back to the next extension or Wolpi's
+   * default cropping.
+   *
+   * If you need to run Wolpi's standard cropping logic and then apply
+   * additional transformations, use the {@link ImageRequestParser} (available in
+   * `wolpi.imageRequestParser`) to parse `request.cropSpec` into a target
+   * {@link CropRectangle}.
+   *
+   * @param image Current pipeline image as a {@link VImage} host object.
+   * @param identifier The image identifier.
+   * @param imageInfo Source image metadata as {@link ImageInfo}.
+   * @param request Current IIIF request as {@link ImageApiRequest}.
+   * @returns A cropped {@link VImage} or `null` / `undefined` to keep Wolpi's
+   * default cropping behavior.
+   */
+  preCrop?: (
+    image: VImage,
+    identifier: string,
+    imageInfo: ImageInfo,
+    request: ImageApiRequest,
+  ) => VImage | null | undefined | void;
+
+  /**
+   * Override or augment the image rotation step.
+   *
+   * `imageInfo` describes the original input image. If multiple extensions
+   * implement this hook, the first non-`null`/non-`undefined` result wins;
+   * returning `null` or `undefined` falls back to the next extension or Wolpi's
+   * default rotation.
+   *
+   * If you need to run Wolpi's standard rotation logic and then apply
+   * additional transformations, use the {@link ImageRequestParser} (available in
+   * `wolpi.imageRequestParser`) to parse `request.rotationSpec` into a target
+   * {@link Rotation}.
+   *
+   * @param image Current pipeline image as a {@link VImage} host object.
+   * @param identifier The image identifier.
+   * @param imageInfo Source image metadata as {@link ImageInfo}.
+   * @param request Current IIIF request as {@link ImageApiRequest}.
+   * @returns A replacement {@link VImage} or `null` / `undefined` to keep
+   * Wolpi's default rotation behavior.
+   */
+  preRotate?: (
+    image: VImage,
+    identifier: string,
+    imageInfo: ImageInfo,
+    request: ImageApiRequest,
+  ) => VImage | null | undefined | void;
+
+  /**
+   * Override or augment the image quality step.
+   *
+   * `imageInfo` describes the original input image. If multiple extensions
+   * implement this hook, the first non-`null`/non-`undefined` result wins;
+   * returning `null` or `undefined` falls back to the next extension or Wolpi's
+   * default quality handling.
+   *
+   * If you need to run Wolpi's standard quality logic and then apply additional
+   * transformations, use the {@link ImageRequestParser} (available in
+   * `wolpi.imageRequestParser`) to parse `request.qualitySpec` into a target
+   * {@link IIIFQuality}.
+   *
+   * @param image Current pipeline image as a {@link VImage} host object.
+   * @param identifier The image identifier.
+   * @param imageInfo Source image metadata as {@link ImageInfo}.
+   * @param request Current IIIF request as {@link ImageApiRequest}.
+   * @returns A replacement {@link VImage} or `null` / `undefined` to keep
+   * Wolpi's default quality handling.
+   */
+  preQuality?: (
+    image: VImage,
+    identifier: string,
+    imageInfo: ImageInfo,
+    request: ImageApiRequest,
+  ) => VImage | null | undefined | void;
+
+  /**
+   * Encode the processed image before Wolpi applies its default encoder.
+   *
+   * Return an {@link EncodedImage} with encoded data, the response content type,
+   * and optional {@link HttpHeaders}. If multiple extensions implement this
+   * hook, the first non-`null`/non-`undefined` result wins; returning `null` or
+   * `undefined` keeps the default encoder.
+   *
+   * @param image Current pipeline image as a {@link VImage} host object.
+   * @param identifier The image identifier.
+   * @param imageInfo Source image metadata as {@link ImageInfo}.
+   * @param request Current IIIF request as {@link ImageApiRequest}.
+   * @returns An {@link EncodedImage} or `null` / `undefined` to keep Wolpi's
+   * default encoding logic.
+   */
+  preFormat?: (
+    image: VImage,
+    identifier: string,
+    imageInfo: ImageInfo,
+    request: ImageApiRequest,
+  ) => EncodedImage | null | undefined | void;
 }
 
 /** Minimal GraalJS `Java` interop surface used by Wolpi extensions. */

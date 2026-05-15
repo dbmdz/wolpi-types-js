@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "index.d.ts",
+    "synthetic-modules.d.ts",
+    "tests/**/*.ts"
+  ]
+}
