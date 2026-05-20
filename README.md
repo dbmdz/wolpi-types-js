@@ -1,4 +1,4 @@
-# `@mdz/wolpi-types`
+# `wolpi-types`
 
 Type declarations for writing Wolpi JavaScript extensions.
 
@@ -16,21 +16,21 @@ The exported type names match the Java types used in Wolpi itself.
 Add the package as a development dependency:
 
 ```sh
-npm install --save-dev @mdz/wolpi-types
+npm install --save-dev wolpi-types
 ```
 
 ## Enable the declarations
 
 This package is for type checking and editor support only. At runtime, Wolpi provides the `wolpi`
 and `Java` globals plus the built-in `wolpi:fs` and `wolpi:fetch` modules. Do not import runtime
-values from `@mdz/wolpi-types`; use type-only imports or JSDoc references.
+values from `wolpi-types`; use type-only imports or JSDoc references.
 
 The simplest setup is to load the declarations through `compilerOptions.types`:
 
 ```json
 {
 	"compilerOptions": {
-		"types": ["@mdz/wolpi-types"]
+		"types": ["wolpi-types"]
 	}
 }
 ```
@@ -43,7 +43,7 @@ For JavaScript projects, also enable `checkJs`:
 		"allowJs": true,
 		"checkJs": true,
 		"noEmit": true,
-		"types": ["@mdz/wolpi-types"]
+		"types": ["wolpi-types"]
 	},
 	"include": ["./**/*.js"]
 }
@@ -54,7 +54,7 @@ For JavaScript projects, also enable `checkJs`:
 TypeScript:
 
 ```ts
-import type { ExtensionInfo, WolpiExtension } from '@mdz/wolpi-types';
+import type { ExtensionInfo, WolpiExtension } from 'wolpi-types';
 
 const info = (): ExtensionInfo => ({
   apiVersion: 1,
@@ -83,7 +83,7 @@ JavaScript:
 ```js
 // @ts-check
 
-/** @type {import('@mdz/wolpi-types').WolpiExtension} */
+/** @type {import('wolpi-types').WolpiExtension} */
 const extension = {
     // ... your extension that will be type-checked against the WolpiExtension interface
 };

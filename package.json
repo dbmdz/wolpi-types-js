@@ -1,5 +1,5 @@
 {
-  "name": "@mdz/wolpi-types",
+  "name": "wolpi-types",
   "version": "0.1.0",
   "description": "Type declarations for the Wolpi extension API",
   "license": "MIT",
