@@ -4,7 +4,7 @@ import type {
   ImmutableJsonValue,
   JsonValue,
   WolpiExtension,
-} from "@mdz/wolpi-types";
+} from "wolpi-types";
 
 const info: WolpiExtension["info"] = (): ExtensionInfo => ({
   apiVersion: 1,
