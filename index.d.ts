@@ -191,32 +191,6 @@ export interface HttpResolvedImage extends ResolvedMeta {
   headers?: Record<string, string>;
 }
 
-/**
- * A custom data source that libvips will read from using callbacks.
- *
- * This can be more efficient for large images from backends such as databases
- * or object storage systems. Metadata may be attached as additional properties.
- */
-export interface CustomSourceResolvedImage extends ResolvedMeta {
-  /**
-   * Seek to a new position.
-   *
-   * `whence` is:
-   * - `0`: beginning of file
-   * - `1`: current position
-   * - `2`: end of file
-   */
-  onSeek(offset: number, whence: number): number;
-
-  /**
-   * Read up to `length` bytes from the current position.
-   *
-   * The returned buffer is copied, so it is safe to reuse internal buffers for
-   * subsequent calls.
-   */
-  onRead(length: number): Uint8Array | ArrayBufferView;
-}
-
 /** Marker result indicating that the source has not changed since the client's cached copy. */
 export interface SourceNotModified {
   notModified: true;
@@ -229,7 +203,6 @@ export type ResolvedImage =
   | FilesystemResolvedImage
   | BinaryResolvedImage
   | HttpResolvedImage
-  | CustomSourceResolvedImage
   | SourceNotModified;
 
 /**
